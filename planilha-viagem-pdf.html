@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Planilha Viagem</title>
+<style>
+:root{
+ --bg:#0b0f17; --card:#121a27; --muted:#8fa3bf; --txt:#e7eefc;
+ --line:#22314a; --accent:#4ea1ff; --danger:#ff5d5d; --ok:#2dd4bf;
+}
+*{box-sizing:border-box}
+body{
+ margin:0; padding:16px;
+ font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+ background:linear-gradient(180deg,#060912 0%,#0b0f17 100%);
+ color:var(--txt);
+}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+h1{margin:0;font-size:20px}
+.subtitle{color:var(--muted);font-size:12px}
+.card{
+ background:rgba(18,26,39,.95);
+ border:1px solid var(--line);
+ border-radius:14px;
+ padding:14px;
+}
+form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+input{
+ padding:12px;font-size:16px;border-radius:10px;
+ border:1px solid var(--line);
+ background:#0c1320;color:var(--txt)
+}
+button{
+ padding:12px;border-radius:10px;border:1px solid var(--line);
+ background:#0c1320;color:var(--txt);font-weight:700;cursor:pointer
+}
+.btn-primary{background:rgba(78,161,255,.15)}
+.btn-ok{background:rgba(45,212,191,.12)}
+.btn-danger{background:rgba(255,93,93,.12)}
+.full{grid-column:1/-1}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{padding:8px;border-bottom:1px solid #22314a;font-size:14px;text-align:left}
+.calc-box{
+ margin-top:10px;padding:10px;border:1px dashed #22314a;
+ border-radius:10px;display:flex;justify-content:space-between
+}
+@media print{
+ body{background:#fff;color:#000}
+ .card,header,button,.calc-box,.actions{box-shadow:none}
+ button,.actions,.calc-box,form,.subtitle{display:none!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<div>
+<h1>Planilha Viagem</h1>
+<div class="subtitle">Exportar em PDF pelo próprio celular</div>
+</div>
+</header>
+
+<div class="card">
+<form id="form">
+<label class="full">Data<input type="date" id="data" required></label>
+<label>Entrada<input type="time" id="entrada" required></label>
+<label>Saída<input type="time" id="saida" required></label>
+<label>Entrada almoço<input type="time" id="almIn"></label>
+<label>Saída almoço<input type="time" id="almOut"></label>
+<button class="btn-primary full" type="submit">+ Adicionar</button>
+</form>
+
+<div class="calc-box">⏱️ Horas do dia <b id="preview">—</b></div>
+</div>
+
+<div class="card">
+<div class="actions">
+<button class="btn-ok" onclick="exportPDF()">📄 Exportar PDF</button>
+<button class="btn-danger" onclick="clearAll()">🗑️ Limpar</button>
+</div>
+
+<table>
+<thead>
+<tr><th>Data</th><th>Entrada</th><th>Saída</th><th>Almoço</th><th>Horas</th></tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+</div>
+
+<script>
+const KEY="planilha_viagem_pdf";
+const f=id=>document.getElementById(id);
+
+function toMin(t){if(!t)return null;const[a,b]=t.split(":").map(Number);return a*60+b}
+function diff(a,b){if(a===null||b===null)return null;if(b<a)b+=1440;return b-a}
+function fmt(m){if(m===null||m<0)return "—";return Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m"}
+
+function calc(){
+ const e=toMin(f("entrada").value);
+ const s=toMin(f("saida").value);
+ if(e===null||s===null)return null;
+ let t=diff(e,s);
+ const ai=toMin(f("almIn").value);
+ const ao=toMin(f("almOut").value);
+ if(ai!==null&&ao!==null)t-=diff(ai,ao);
+ return t;
+}
+
+["entrada","saida","almIn","almOut"].forEach(id=>{
+ f(id).addEventListener("input",()=>f("preview").textContent=fmt(calc()))
+});
+
+function load(){return JSON.parse(localStorage.getItem(KEY)||"[]")}
+function save(r){localStorage.setItem(KEY,JSON.stringify(r))}
+
+function render(){
+ const tb=f("tbody");tb.innerHTML="";
+ load().forEach(r=>{
+  tb.innerHTML+=`<tr><td>${r.d}</td><td>${r.e}</td><td>${r.s}</td><td>${r.a}</td><td>${r.h}</td></tr>`;
+ });
+}
+
+f("form").addEventListener("submit",e=>{
+ e.preventDefault();
+ const m=calc(); if(m===null||m<0)return alert("Horários inválidos");
+ const rows=load();
+ rows.push({
+  d:f("data").value,
+  e:f("entrada").value,
+  s:f("saida").value,
+  a:(f("almIn").value&&f("almOut").value)?f("almIn").value+"-"+f("almOut").value:"—",
+  h:fmt(m)
+ });
+ save(rows); render(); f("form").reset(); f("preview").textContent="—";
+});
+
+function exportPDF(){
+ window.print();
+}
+
+function clearAll(){
+ if(confirm("Apagar tudo?")){localStorage.removeItem(KEY);render();}
+}
+
+render();
+</script>
+</body>
+</html>
