@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Planilha Viagem</title>
+  <style>
+    :root{
+      --bg:#0b0f17; --card:#121a27; --muted:#8fa3bf; --txt:#e7eefc;
+      --line:#22314a; --accent:#4ea1ff; --danger:#ff5d5d; --ok:#2dd4bf;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:16px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:linear-gradient(180deg, #060912 0%, #0b0f17 100%);
+      color:var(--txt);
+    }
+    .wrap{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
+    header{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:10px;}
+    h1{margin:0; font-size:20px;}
+    .subtitle{color:var(--muted); font-size:12px;}
+    .card{
+      background:rgba(18,26,39,.95);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    form{display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end;}
+    label{display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted);}
+    input{
+      background:#0c1320; color:var(--txt);
+      border:1px solid var(--line); border-radius:10px;
+      padding:12px 12px; font-size:16px; outline:none;
+    }
+    input:focus{border-color:rgba(78,161,255,.8); box-shadow: 0 0 0 3px rgba(78,161,255,.15);}
+    .full{grid-column: 1 / -1;}
+    button{
+      border:1px solid var(--line);
+      background:#0c1320; color:var(--txt);
+      padding:12px 12px; border-radius:10px;
+      cursor:pointer; font-weight:700; font-size:14px;
+      transition:.15s ease;
+      width:100%;
+    }
+    button:hover{transform:translateY(-1px); border-color:rgba(78,161,255,.7);}
+    .btn-primary{background:rgba(78,161,255,.15); border-color:rgba(78,161,255,.35);}
+    .btn-danger{background:rgba(255,93,93,.12); border-color:rgba(255,93,93,.35);}
+    .btn-ok{background:rgba(45,212,191,.12); border-color:rgba(45,212,191,.35);}
+    .actions{display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:center;}
+    .hint{color:var(--muted); font-size:12px;}
+    table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:12px; border:1px solid var(--line);}
+    thead th{
+      text-align:left; font-size:12px; color:var(--muted);
+      background:#0c1320; padding:10px 10px; border-bottom:1px solid var(--line);
+    }
+    tbody td{padding:10px 10px; border-bottom:1px solid rgba(34,49,74,.6); font-size:14px;}
+    tbody tr:last-child td{border-bottom:none;}
+    tbody tr:hover td{background:rgba(78,161,255,.06);}
+    .row-actions{display:flex; gap:8px; justify-content:flex-end;}
+    .small{padding:8px 10px; border-radius:9px; font-size:12px; width:auto;}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border:1px dashed rgba(143,163,191,.35);
+      border-radius:999px; color:var(--muted); font-size:12px;
+    }
+    .status{margin-top:8px; font-size:12px; color:var(--muted);}
+    .calc-box{
+      margin-top:10px;
+      padding:10px 12px;
+      border:1px dashed rgba(143,163,191,.25);
+      border-radius:12px;
+      color:var(--muted);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      background: rgba(12,19,32,.35);
+    }
+    .calc-box b{color:var(--txt); font-size:14px;}
+    @media (max-width: 420px){
+      .actions{grid-template-columns: 1fr;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Planilha Viagem</h1>
+        <div class="subtitle">✅ v3: almoço + horas do dia (auto) + opção manual + correções iPhone</div>
+      </div>
+      <div class="pill" id="storagePill">💾 Carregando…</div>
+    </header>
+
+    <div class="card">
+      <form id="entryForm">
+        <label class="full">
+          Data
+          <input type="date" id="data" required />
+        </label>
+
+        <label>
+          Entrada (trabalho)
+          <input type="time" id="entrada" required />
+        </label>
+        <label>
+          Saída (trabalho)
+          <input type="time" id="saida" required />
+        </label>
+
+        <label>
+          Entrada almoço
+          <input type="time" id="almocoEntrada" />
+        </label>
+        <label>
+          Saída almoço
+          <input type="time" id="almocoSaida" />
+        </label>
+
+        <label class="full">
+          Horas trabalhadas no dia (opcional manual, ex.: 8:30)
+          <input type="text" id="horasManual" inputmode="numeric" placeholder="Deixe vazio para calcular automático" />
+        </label>
+
+        <button type="submit" class="btn-primary full">+ Adicionar</button>
+      </form>
+
+      <div class="calc-box" aria-live="polite">
+        <span>⏱️ Horas trabalhadas no dia (prévia):</span>
+        <b id="horasDia">—</b>
+      </div>
+
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card">
+      <div class="actions">
+        <button class="btn-ok" id="exportCsv" type="button">⬇️ Exportar CSV</button>
+        <button class="btn-danger" id="clearAll" type="button">🗑️ Limpar tudo</button>
+      </div>
+
+      <div style="margin-top:12px; overflow:auto;">
+        <table aria-label="Planilha">
+          <thead>
+            <tr>
+              <th style="min-width:120px;">Data</th>
+              <th style="min-width:92px;">Entrada</th>
+              <th style="min-width:92px;">Saída</th>
+              <th style="min-width:110px;">Almoço</th>
+              <th style="min-width:120px;">Horas (dia)</th>
+              <th style="min-width:90px; text-align:right;">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="hint" style="margin-top:10px;">
+        Se aparecer “Storage bloqueado”, abra pelo link (https) e não em navegação privada.
+      </div>
+    </div>
+  </div>
+
+<script>
+  const KEY = "planilha_viagem_v3";
+
+  const form = document.getElementById("entryForm");
+  const dataEl = document.getElementById("data");
+  const entradaEl = document.getElementById("entrada");
+  const saidaEl = document.getElementById("saida");
+  const almocoEntradaEl = document.getElementById("almocoEntrada");
+  const almocoSaidaEl = document.getElementById("almocoSaida");
+  const horasManualEl = document.getElementById("horasManual");
+
+  const horasDiaEl = document.getElementById("horasDia");
+
+  const tbody = document.getElementById("tbody");
+  const statusEl = document.getElementById("status");
+  const storagePill = document.getElementById("storagePill");
+
+  const exportBtn = document.getElementById("exportCsv");
+  const clearBtn = document.getElementById("clearAll");
+
+  function uuid(){
+    try{
+      if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+    }catch(e){}
+    return String(Date.now()) + Math.random().toString(16).slice(2);
+  }
+
+  function storageOK(){
+    try{
+      const testKey = "__t__";
+      localStorage.setItem(testKey, "1");
+      localStorage.removeItem(testKey);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  function loadRows(){
+    try{
+      const raw = localStorage.getItem(KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){
+      return [];
+    }
+  }
+
+  function saveRows(rows){
+    localStorage.setItem(KEY, JSON.stringify(rows));
+    storagePill.textContent = `💾 Salvo (${rows.length})`;
+  }
+
+  function fmtDate(iso){
+    if(!iso) return "";
+    const p = iso.split("-");
+    return `${p[2]}/${p[1]}/${p[0]}`;
+  }
+
+  function normalizeTime(t){
+    if(!t) return "";
+    const p = t.split(":");
+    return `${String(p[0]).padStart(2,"0")}:${String(p[1]||"00").padStart(2,"0")}`;
+  }
+
+  function toMinutes(hhmm){
+    if(!hhmm) return null;
+    const p = hhmm.split(":").map(Number);
+    if(Number.isNaN(p[0]) || Number.isNaN(p[1])) return null;
+    return p[0]*60 + p[1];
+  }
+
+  function minutesDiff(startMin, endMin){
+    if(startMin === null || endMin === null) return null;
+    let s = startMin, e = endMin;
+    if(e < s) e += 24*60;
+    return e - s;
+  }
+
+  function fmtDuration(mins){
+    if(mins === null || mins < 0) return "—";
+    const h = Math.floor(mins/60);
+    const m = mins % 60;
+    return `${h}h ${String(m).padStart(2,"0")}m`;
+  }
+
+  function parseHorasManual(txt){
+    if(!txt) return null;
+    const t = String(txt).trim();
+    if(!t) return null;
+
+    if(t.includes(":")){
+      const parts = t.split(":");
+      const hh = Number(parts[0]);
+      const mm = Number(parts[1]);
+      if(Number.isNaN(hh) || Number.isNaN(mm)) return null;
+      return hh*60 + mm;
+    }
+
+    const norm = t.replace(",", ".");
+    const val = Number(norm);
+    if(Number.isNaN(val)) return null;
+    return Math.round(val * 60);
+  }
+
+  function calcWorkMinutes(entrada, saida, almocoEntrada, almocoSaida){
+    const start = toMinutes(entrada);
+    const end = toMinutes(saida);
+    const total = minutesDiff(start, end);
+    if(total === null) return null;
+
+    const l1 = toMinutes(almocoEntrada);
+    const l2 = toMinutes(almocoSaida);
+    if(l1 !== null && l2 !== null){
+      const lunch = minutesDiff(l1, l2);
+      if(lunch !== null && lunch >= 0) return total - lunch;
+    }
+    return total;
+  }
+
+  function setStatus(msg, isError=false){
+    statusEl.textContent = msg ? ((isError ? "⚠️ " : "✅ ") + msg) : "";
+    if(msg) setTimeout(()=> statusEl.textContent="", 4500);
+  }
+
+  function render(){
+    const rows = loadRows();
+    rows.sort((a,b)=> ((a.data||"")+(a.entrada||"")).localeCompare((b.data||"")+(b.entrada||"")));
+    tbody.innerHTML = "";
+
+    for(const row of rows){
+      const tr = document.createElement("tr");
+
+      const tdData = document.createElement("td"); tdData.textContent = fmtDate(row.data);
+      const tdEnt  = document.createElement("td"); tdEnt.textContent  = row.entrada || "";
+      const tdSai  = document.createElement("td"); tdSai.textContent  = row.saida || "";
+
+      const almText = (row.almocoEntrada && row.almocoSaida) ? `${row.almocoEntrada}–${row.almocoSaida}` : "—";
+      const tdAlm  = document.createElement("td"); tdAlm.textContent  = almText;
+
+      const tdHor  = document.createElement("td"); tdHor.textContent  = row.horasDiaTexto || "—";
+
+      const tdAct = document.createElement("td");
+      tdAct.style.textAlign = "right";
+      const wrap = document.createElement("div");
+      wrap.className = "row-actions";
+
+      const del = document.createElement("button");
+      del.className = "small btn-danger";
+      del.type = "button";
+      del.textContent = "Excluir";
+      del.onclick = ()=>{
+        const next = loadRows().filter(r=> r.id !== row.id);
+        saveRows(next);
+        render();
+        setStatus("Registro excluído.");
+      };
+
+      wrap.appendChild(del);
+      tdAct.appendChild(wrap);
+
+      tr.appendChild(tdData);
+      tr.appendChild(tdEnt);
+      tr.appendChild(tdSai);
+      tr.appendChild(tdAlm);
+      tr.appendChild(tdHor);
+      tr.appendChild(tdAct);
+
+      tbody.appendChild(tr);
+    }
+
+    storagePill.textContent = `💾 Salvo (${rows.length})`;
+  }
+
+  function updateHorasDiaPreview(){
+    const entrada = normalizeTime(entradaEl.value);
+    const saida = normalizeTime(saidaEl.value);
+    const aE = normalizeTime(almocoEntradaEl.value);
+    const aS = normalizeTime(almocoSaidaEl.value);
+
+    const manual = parseHorasManual(horasManualEl.value);
+    if(manual !== null){
+      horasDiaEl.textContent = fmtDuration(manual);
+      return;
+    }
+
+    if(!entrada || !saida){
+      horasDiaEl.textContent = "—";
+      return;
+    }
+
+    const workMin = calcWorkMinutes(entrada, saida, aE, aS);
+    horasDiaEl.textContent = fmtDuration(workMin);
+  }
+
+  [entradaEl, saidaEl, almocoEntradaEl, almocoSaidaEl, horasManualEl].forEach(el=>{
+    el.addEventListener("input", updateHorasDiaPreview);
+    el.addEventListener("change", updateHorasDiaPreview);
+  });
+
+  form.addEventListener("submit", (e)=>{
+    e.preventDefault();
+
+    if(!storageOK()){
+      setStatus("Storage bloqueado. Abra pelo link HTTPS e não em navegação privada.", true);
+      return;
+    }
+
+    const data = dataEl.value;
+    const entrada = normalizeTime(entradaEl.value);
+    const saida = normalizeTime(saidaEl.value);
+    const almocoEntrada = normalizeTime(almocoEntradaEl.value);
+    const almocoSaida = normalizeTime(almocoSaidaEl.value);
+
+    if(!data || !entrada || !saida){
+      setStatus("Preencha Data, Entrada e Saída.", true);
+      return;
+    }
+
+    if((almocoEntrada && !almocoSaida) || (!almocoEntrada && almocoSaida)){
+      setStatus("Se usar almoço, preencha Entrada e Saída do almoço.", true);
+      return;
+    }
+
+    const manualMin = parseHorasManual(horasManualEl.value);
+    let workMin = manualMin;
+
+    if(workMin === null){
+      workMin = calcWorkMinutes(entrada, saida, almocoEntrada, almocoSaida);
+    }
+
+    if(workMin === null || workMin < 0){
+      setStatus("Horários inválidos. Confira entrada/saída e almoço.", true);
+      return;
+    }
+
+    const rows = loadRows();
+    rows.push({
+      id: uuid(),
+      data, entrada, saida,
+      almocoEntrada: almocoEntrada || "",
+      almocoSaida: almocoSaida || "",
+      horasDiaMin: workMin,
+      horasDiaTexto: fmtDuration(workMin)
+    });
+
+    saveRows(rows);
+    render();
+    setStatus(`Adicionado! Horas do dia: ${fmtDuration(workMin)}`);
+
+    form.reset();
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,"0");
+    const dd = String(today.getDate()).padStart(2,"0");
+    dataEl.value = `${yyyy}-${mm}-${dd}`;
+
+    horasDiaEl.textContent = "—";
+    dataEl.focus();
+  });
+
+  exportBtn.addEventListener("click", ()=>{
+    if(!storageOK()){
+      setStatus("Storage bloqueado. Abra pelo link HTTPS e não em navegação privada.", true);
+      return;
+    }
+    const rows = loadRows();
+    const header = ["Data","Entrada","Saída","Entrada almoço","Saída almoço","Horas trabalhadas (min)","Horas trabalhadas (texto)"];
+    const lines = [header.join(",")];
+
+    for(const r of rows){
+      const values = [
+        r.data, r.entrada, r.saida, (r.almocoEntrada||""), (r.almocoSaida||""),
+        String(r.horasDiaMin ?? ""), String(r.horasDiaTexto ?? "")
+      ];
+      lines.push(values.map(v => `"${String(v ?? "").replaceAll('"','""')}"`).join(","));
+    }
+
+    const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "planilha-viagem.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setStatus("CSV exportado.");
+  });
+
+  clearBtn.addEventListener("click", ()=>{
+    const ok = confirm("Apagar todos os registros desta planilha neste navegador?");
+    if(!ok) return;
+    try{
+      localStorage.removeItem(KEY);
+      render();
+      setStatus("Tudo limpo.");
+    }catch(e){
+      setStatus("Não consegui limpar (storage bloqueado).", true);
+    }
+  });
+
+  (function init(){
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,"0");
+    const dd = String(today.getDate()).padStart(2,"0");
+    dataEl.value = `${yyyy}-${mm}-${dd}`;
+
+    if(!storageOK()){
+      storagePill.textContent = "⚠️ Storage bloqueado";
+      setStatus("Storage bloqueado. Abra pelo link HTTPS e não em navegação privada.", true);
+    }else{
+      render();
+      updateHorasDiaPreview();
+    }
+  })();
+</script>
+</body>
+</html>
