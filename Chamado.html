@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>App - Chamados & Agenda (MVP)</title>
+  <meta name="theme-color" content="#0b0f17" />
+  <style>
+    :root{
+      --bg:#0b0f17; --panel:#121a27; --panel2:#0c1320; --muted:#8fa3bf; --txt:#e7eefc;
+      --line:#22314a; --a:#4ea1ff; --ok:#2dd4bf; --warn:#ffb020; --bad:#ff5d5d;
+      --shadow: 0 12px 34px rgba(0,0,0,.35);
+      --r:14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:linear-gradient(180deg,#060912 0%,#0b0f17 100%);
+      color:var(--txt); font: 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      padding: env(safe-area-inset-top) 10px env(safe-area-inset-bottom);
+    }
+    .app{max-width:980px; margin:0 auto; min-height:100%; display:flex; flex-direction:column; gap:10px;}
+    header{
+      display:flex; align-items:flex-end; justify-content:space-between; gap:10px; padding:8px 2px 0;
+    }
+    .title{display:flex; flex-direction:column; gap:2px;}
+    h1{margin:0; font-size:18px}
+    .sub{color:var(--muted); font-size:12px}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px dashed rgba(143,163,191,.35);
+      border-radius:999px; color:var(--muted); font-size:12px; white-space:nowrap}
+    .card{
+      background:rgba(18,26,39,.95); border:1px solid var(--line); border-radius:var(--r);
+      padding:12px; box-shadow:var(--shadow);
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between}
+    .tabs{display:flex; gap:8px; flex-wrap:wrap}
+    .tab{
+      border:1px solid var(--line); background:var(--panel2); color:var(--txt);
+      padding:8px 10px; border-radius:999px; cursor:pointer; font-weight:700; font-size:12px;
+    }
+    .tab.active{border-color:rgba(78,161,255,.55); background:rgba(78,161,255,.12)}
+    .btn{
+      border:1px solid var(--line); background:var(--panel2); color:var(--txt);
+      padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:800; font-size:13px;
+      transition:.12s ease; user-select:none;
+    }
+    .btn:hover{transform:translateY(-1px); border-color:rgba(78,161,255,.55)}
+    .btn.a{background:rgba(78,161,255,.14); border-color:rgba(78,161,255,.35)}
+    .btn.ok{background:rgba(45,212,191,.12); border-color:rgba(45,212,191,.35)}
+    .btn.bad{background:rgba(255,93,93,.12); border-color:rgba(255,93,93,.35)}
+    .grid{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    label{display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:12px}
+    input,select,textarea{
+      background:var(--panel2); color:var(--txt); border:1px solid var(--line);
+      border-radius:12px; padding:12px; font-size:16px; outline:none;
+    }
+    textarea{min-height:92px; resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:rgba(78,161,255,.75); box-shadow:0 0 0 3px rgba(78,161,255,.12)}
+    .full{grid-column:1/-1}
+    .muted{color:var(--muted)}
+    .list{display:flex; flex-direction:column; gap:8px}
+    .item{
+      border:1px solid rgba(34,49,74,.75); background:rgba(12,19,32,.45);
+      border-radius:14px; padding:10px; display:flex; gap:10px; justify-content:space-between; align-items:flex-start;
+    }
+    .meta{display:flex; flex-direction:column; gap:3px}
+    .k{font-weight:900}
+    .tag{display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius:999px; font-size:11px;
+      border:1px solid rgba(143,163,191,.25); color:var(--muted); white-space:nowrap}
+    .tag.open{border-color:rgba(78,161,255,.35); color:#beddff}
+    .tag.work{border-color:rgba(255,176,32,.35); color:#ffe4b0}
+    .tag.quote{border-color:rgba(45,212,191,.35); color:#baf5ee}
+    .tag.done{border-color:rgba(143,163,191,.35); color:#d2dcf0}
+    .tag.cancel{border-color:rgba(255,93,93,.35); color:#ffc2c2}
+    .two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .right{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    .sep{height:1px; background:rgba(34,49,74,.7); margin:10px 0}
+    .empty{color:var(--muted); padding:8px 2px}
+    .toast{margin-top:8px; font-size:12px; color:var(--muted)}
+    .hide{display:none!important}
+    @media (max-width: 720px){
+      .grid{grid-template-columns:1fr}
+      .two{grid-template-columns:1fr}
+      header{align-items:flex-start}
+    }
+    @media print{
+      body{background:#fff; color:#000; padding:0}
+      header,.tabs,.btn,.toast,.no-print{display:none!important}
+      .card{box-shadow:none; border:0}
+      .item{break-inside:avoid}
+      .tag{border:1px solid #ccc; color:#111}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title">
+      <h1>App (HTML) — Chamados & Agenda</h1>
+      <div class="sub">MVP via GitHub Pages (dados no navegador). Base pronta para virar online depois.</div>
+    </div>
+    <div class="pill" id="pill">💾 Pronto</div>
+  </header>
+
+  <div class="card" id="view-login">
+    <div class="row">
+      <div>
+        <div class="k">Entrar</div>
+        <div class="muted">Nesta versão HTML, o “OTP WhatsApp” é simulado (para publicar rápido). Depois conectamos a um backend.</div>
+      </div>
+      <button class="btn ok" id="btn-seed">Criar dados demo</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grid">
+      <label class="full">WhatsApp (login)
+        <input id="login-phone" placeholder="Ex: 11999999999" inputmode="numeric" />
+      </label>
+      <label>Perfil
+        <select id="login-role">
+          <option value="ADM">ADM</option>
+          <option value="EMPRESA">USUÁRIO EMPRESA</option>
+          <option value="CLIENTE">CLIENTE</option>
+        </select>
+      </label>
+      <label>Senha (simulada)
+        <input id="login-pass" type="password" placeholder="1234" />
+      </label>
+      <button class="btn a full" id="btn-login">Entrar</button>
+    </div>
+    <div class="toast" id="login-msg"></div>
+  </div>
+
+  <div class="card hide" id="view-app">
+    <div class="row">
+      <div>
+        <div class="k" id="who">—</div>
+        <div class="muted" id="who2">—</div>
+      </div>
+      <div class="right">
+        <button class="btn" id="btn-install">📲 Dica instalar</button>
+        <button class="btn bad" id="btn-logout">Sair</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="tabs no-print" id="tabs">
+      <button class="tab active" data-tab="dash">Dashboard</button>
+      <button class="tab" data-tab="chamados">Chamados</button>
+      <button class="tab" data-tab="agenda">Agenda</button>
+      <button class="tab" data-tab="clientes">Clientes</button>
+      <button class="tab" data-tab="funcs">Funcionários</button>
+      <button class="tab" data-tab="servicos">Serviços</button>
+      <button class="tab" data-tab="config">Config</button>
+    </div>
+
+    <div id="tab-dash">
+      <div class="two">
+        <div class="card" style="box-shadow:none; border-color:rgba(34,49,74,.7);">
+          <div class="k">Resumo</div>
+          <div class="sep"></div>
+          <div class="list" id="dash-kpis"></div>
+        </div>
+        <div class="card" style="box-shadow:none; border-color:rgba(34,49,74,.7);">
+          <div class="k">Ações rápidas</div>
+          <div class="sep"></div>
+          <div class="right">
+            <button class="btn a" id="quick-new-ticket">+ Novo chamado</button>
+            <button class="btn ok" id="quick-pdf">📄 Exportar PDF (tela)</button>
+          </div>
+          <div class="toast">PDF: abre “Imprimir” para salvar em PDF no celular.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hide" id="tab-chamados">
+      <div class="row">
+        <div>
+          <div class="k">Chamados</div>
+          <div class="muted">Cliente e Empresa podem abrir. Cliente só vira agendamento após confirmação da empresa.</div>
+        </div>
+        <div class="right no-print">
+          <select id="filter-status">
+            <option value="ALL">Todos</option>
+            <option value="ABERTO">Aberto</option>
+            <option value="EM_ANDAMENTO">Em andamento</option>
+            <option value="ORCAMENTO">Orçamento</option>
+            <option value="CONCLUIDO">Concluído</option>
+            <option value="CANCELADO">Cancelado</option>
+          </select>
+          <button class="btn a" id="btn-new-ticket">+ Abrir chamado</button>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="list" id="ticket-list"></div>
+      <div class="empty hide" id="ticket-empty">Nenhum chamado ainda.</div>
+    </div>
+
+    <div class="hide" id="tab-agenda">
+      <div class="row">
+        <div>
+          <div class="k">Agenda (blocos de 2h)</div>
+          <div class="muted">Agenda única, com funcionário responsável.</div>
+        </div>
+        <div class="right no-print">
+          <input type="date" id="agenda-date" />
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="list" id="agenda-list"></div>
+      <div class="empty hide" id="agenda-empty">Nada agendado para esta data.</div>
+    </div>
+
+    <div class="hide" id="tab-clientes">
+      <div class="row">
+        <div>
+          <div class="k">Clientes</div>
+          <div class="muted">Cadastro completo: nome, WhatsApp, CPF, CEP, endereço, cidade, estado.</div>
+        </div>
+        <div class="right no-print">
+          <button class="btn a" id="btn-new-client">+ Novo cliente</button>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="list" id="client-list"></div>
+      <div class="empty hide" id="client-empty">Nenhum cliente cadastrado.</div>
+    </div>
+
+    <div class="hide" id="tab-funcs">
+      <div class="row">
+        <div>
+          <div class="k">Funcionários</div>
+          <div class="muted">Cadastro: nome, WhatsApp, endereço, CPF, RG, nascimento, veículo, foto, obs.</div>
+        </div>
+        <div class="right no-print">
+          <button class="btn a" id="btn-new-func">+ Novo funcionário</button>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="list" id="func-list"></div>
+      <div class="empty hide" id="func-empty">Nenhum funcionário cadastrado.</div>
+    </div>
+
+    <div class="hide" id="tab-servicos">
+      <div class="row">
+        <div>
+          <div class="k">Serviços</div>
+          <div class="muted">Serviço define duração (padrão 2h) e preço base.</div>
+        </div>
+        <div class="right no-print">
+          <button class="btn a" id="btn-new-serv">+ Novo serviço</button>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="list" id="serv-list"></div>
+      <div class="empty hide" id="serv-empty">Nenhum serviço cadastrado.</div>
+    </div>
+
+    <div class="hide" id="tab-config">
+      <div class="k">Configurações</div>
+      <div class="sep"></div>
+      <div class="grid">
+        <label>Horário comercial (início)
+          <input type="time" id="cfg-start" />
+        </label>
+        <label>Horário comercial (fim)
+          <input type="time" id="cfg-end" />
+        </label>
+        <label class="full">Dados da empresa (texto livre por enquanto)
+          <textarea id="cfg-company" placeholder="Razão Social, CNPJ, Endereço, etc."></textarea>
+        </label>
+        <label class="full">LGPD — termo (texto)
+          <textarea id="cfg-lgpd" placeholder="Termo de consentimento LGPD..."></textarea>
+        </label>
+        <button class="btn ok full" id="btn-save-config">Salvar configurações</button>
+      </div>
+      <div class="toast" id="cfg-msg"></div>
+      <div class="sep"></div>
+      <div class="row no-print">
+        <button class="btn" id="btn-export-json">⬇️ Backup (JSON)</button>
+        <label class="btn" style="display:inline-flex; gap:8px; align-items:center; cursor:pointer;">
+          ⬆️ Restaurar (JSON)
+          <input type="file" id="btn-import-json" accept="application/json" style="display:none" />
+        </label>
+        <button class="btn bad" id="btn-reset">🧨 Resetar tudo</button>
+      </div>
+      <div class="toast">Backup/restore é ótimo enquanto não conectamos banco online.</div>
+    </div>
+
+    <div class="toast" id="app-msg"></div>
+  </div>
+
+  <div class="hide" id="modal" style="position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:flex-end; justify-content:center; padding:12px;">
+    <div class="card" style="width:min(980px, 100%); max-height:88vh; overflow:auto;">
+      <div class="row">
+        <div class="k" id="modal-title">—</div>
+        <button class="btn bad" id="modal-close">Fechar</button>
+      </div>
+      <div class="sep"></div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DB_KEY = "mvp_app_html_v1";
+const nowISO = () => new Date().toISOString();
+const uid = () => (typeof crypto!=="undefined" && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now())+Math.random().toString(16).slice(2);
+const $ = (id) => document.getElementById(id);
+
+function freshDB(){
+  return {
+    config:{ bizHoursStart:"08:00", bizHoursEnd:"18:00", companyText:"", lgpdText:"" },
+    users:[],
+    clients:[],
+    employees:[],
+    services:[],
+    tickets:[]
+  };
+}
+function loadDB(){
+  try{ return JSON.parse(localStorage.getItem(DB_KEY) || "null") || freshDB(); }
+  catch(e){ return freshDB(); }
+}
+function saveDB(db){
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  $("pill").textContent = `💾 Salvo (${db.tickets.length} chamados)`;
+}
+
+let db = loadDB();
+let session = JSON.parse(localStorage.getItem(DB_KEY+"_session") || "null");
+function setSession(s){ session=s; localStorage.setItem(DB_KEY+"_session", JSON.stringify(s)); }
+function clearSession(){ session=null; localStorage.removeItem(DB_KEY+"_session"); }
+
+function show(id){ $(id).classList.remove("hide"); }
+function hide(id){ $(id).classList.add("hide"); }
+function toast(msg){ $("app-msg").textContent = msg || ""; if(msg) setTimeout(()=>$("app-msg").textContent="", 3500); }
+function escapeHtml(str){ return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function tagForStatus(st){
+  const map = { ABERTO:["open","Aberto"], EM_ANDAMENTO:["work","Em andamento"], ORCAMENTO:["quote","Orçamento"], CONCLUIDO:["done","Concluído"], CANCELADO:["cancel","Cancelado"] };
+  const x = map[st] || ["","—"];
+  return `<span class="tag ${x[0]}">${x[1]}</span>`;
+}
+
+function boot(){
+  db = loadDB();
+  $("pill").textContent = `💾 Salvo (${db.tickets.length} chamados)`;
+  if(session) enterApp(); else { show("view-login"); hide("view-app"); }
+}
+
+$("btn-seed").onclick = () => {
+  db = freshDB();
+  const adm = {id:uid(), role:"ADM", name:"Admin", phone:"11999999999", pass:"1234"};
+  const emp = {id:uid(), role:"EMPRESA", name:"Funcionário 1", phone:"11888888888", pass:"1234"};
+  const cli = {id:uid(), role:"CLIENTE", name:"Cliente 1", phone:"11777777777", pass:"1234"};
+  db.users.push(adm, emp, cli);
+  db.services.push(
+    {id:uid(), name:"Manutenção", durationMin:120, priceBase:150, desc:"Diagnóstico e manutenção."},
+    {id:uid(), name:"Instalação", durationMin:120, priceBase:200, desc:"Instalação padrão (2h)."}
+  );
+  db.clients.push({id:uid(), name:"Cliente 1", phone:"11777777777", cpf:"000.000.000-00", cep:"00000-000", address:"Rua Exemplo, 123", city:"São Paulo", state:"SP", createdAt:nowISO()});
+  db.employees.push({id:uid(), name:"Funcionário 1", phone:"11888888888", address:"", cpf:"", rg:"", dob:"", vehicle:"", photoDataUrl:"", notes:"", createdAt:nowISO()});
+  saveDB(db);
+  $("login-msg").textContent = "✅ Dados demo criados. Use 11999999999/1234 (ADM), 11888888888/1234 (Empresa), 11777777777/1234 (Cliente).";
+};
+
+$("btn-login").onclick = () => {
+  const phone = $("login-phone").value.trim();
+  const role = $("login-role").value;
+  const pass = $("login-pass").value.trim() || "1234";
+  if(!phone){ $("login-msg").textContent = "⚠️ Informe o WhatsApp."; return; }
+
+  let u = db.users.find(x=>x.phone===phone && x.role===role);
+  if(!u){
+    u = {id:uid(), role, name:(role==="CLIENTE" ? "Novo Cliente" : role==="EMPRESA" ? "Novo Funcionário" : "Admin"), phone, pass};
+    db.users.push(u); saveDB(db);
+  }
+  if(u.pass !== pass){ $("login-msg").textContent = "⚠️ Senha incorreta (demo: 1234)."; return; }
+
+  setSession({userId:u.id, role:u.role, name:u.name, phone:u.phone, pass:u.pass});
+  $("login-msg").textContent = "";
+  enterApp();
+};
+
+$("btn-logout").onclick = () => { clearSession(); boot(); };
+$("btn-install").onclick = () => alert("Instalar: Safari/Chrome → Compartilhar → 'Adicionar à Tela de Início'.");
+$("quick-pdf").onclick = () => window.print();
+
+$("tabs").onclick = (e) => {
+  const b = e.target.closest(".tab"); if(!b) return;
+  switchTab(b.dataset.tab);
+};
+
+function switchTab(tab){
+  const role = session?.role;
+  const allowed = {
+    dash:true, chamados:true, agenda:true,
+    clientes: role!=="CLIENTE",
+    funcs: role!=="CLIENTE",
+    servicos: role!=="CLIENTE",
+    config: role==="ADM" || role==="EMPRESA"
+  };
+  if(!allowed[tab]){ toast("Sem permissão."); return; }
+
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.querySelector(`.tab[data-tab="${tab}"]`)?.classList.add("active");
+
+  ["dash","chamados","agenda","clientes","funcs","servicos","config"].forEach(t=>{
+    $("tab-"+t).classList.toggle("hide", t!==tab);
+  });
+
+  if(tab==="dash") renderDash();
+  if(tab==="chamados") renderTickets();
+  if(tab==="agenda") renderAgenda();
+  if(tab==="clientes") renderClients();
+  if(tab==="funcs") renderEmps();
+  if(tab==="servicos") renderServices();
+  if(tab==="config") renderConfig();
+}
+
+function enterApp(){
+  hide("view-login"); show("view-app");
+  $("who").textContent = `${session.name} — ${session.role==="EMPRESA"?"USUÁRIO EMPRESA":session.role}`;
+  $("who2").textContent = `WhatsApp: ${session.phone}`;
+
+  document.querySelectorAll(".tab").forEach(btn=>{
+    const t = btn.dataset.tab;
+    const role = session.role;
+    const ok = (t==="dash"||t==="chamados"||t==="agenda") ||
+      (role!=="CLIENTE" && (t==="clientes"||t==="funcs"||t==="servicos")) ||
+      ((role==="ADM"||role==="EMPRESA") && t==="config");
+    btn.classList.toggle("hide", !ok);
+  });
+
+  switchTab("dash");
+}
+
+function renderDash(){
+  const role = session.role;
+  let tickets = [...db.tickets];
+  if(role==="CLIENTE"){
+    const c = db.clients.find(x=>x.phone===session.phone);
+    tickets = c ? tickets.filter(t=>t.clientId===c.id) : [];
+  }
+  const counts = (st)=> tickets.filter(t=>t.status===st).length;
+  $("dash-kpis").innerHTML = [
+    `<div class="item"><div class="meta"><div class="k">Abertos</div><div class="muted">Chamados novos</div></div><div class="k">${counts("ABERTO")}</div></div>`,
+    `<div class="item"><div class="meta"><div class="k">Em andamento</div><div class="muted">Em execução</div></div><div class="k">${counts("EM_ANDAMENTO")}</div></div>`,
+    `<div class="item"><div class="meta"><div class="k">Orçamento</div><div class="muted">Aguardando aprovação</div></div><div class="k">${counts("ORCAMENTO")}</div></div>`,
+    `<div class="item"><div class="meta"><div class="k">Concluídos</div><div class="muted">Finalizados</div></div><div class="k">${counts("CONCLUIDO")}</div></div>`
+  ].join("");
+  $("quick-new-ticket").onclick = ()=> openTicketModal();
+}
+
+$("filter-status").onchange = renderTickets;
+
+function renderTickets(){
+  const role = session.role;
+  const filter = $("filter-status").value;
+  let list = [...db.tickets];
+
+  if(role==="CLIENTE"){
+    const c = db.clients.find(x=>x.phone===session.phone);
+    list = c ? list.filter(t=>t.clientId===c.id) : [];
+  }
+  if(filter!=="ALL") list = list.filter(t=>t.status===filter);
+  list.sort((a,b)=> (b.createdAt||"").localeCompare(a.createdAt||""));
+
+  $("ticket-empty").classList.toggle("hide", list.length!==0);
+  $("ticket-list").innerHTML = list.map(t=>ticketCard(t)).join("");
+  $("ticket-list").querySelectorAll("[data-act]").forEach(b=> b.onclick = ()=> ticketAction(b.dataset.act, b.dataset.id));
+}
+
+function ticketCard(t){
+  const c = db.clients.find(x=>x.id===t.clientId);
+  const s = db.services.find(x=>x.id===t.serviceId);
+  const opened = t.openedByRole==="CLIENTE" ? "Cliente" : "Empresa";
+  const confirmedText = t.confirmed ? "Confirmado" : "Pendente confirmação";
+  const sched = t.scheduledAt ? new Date(t.scheduledAt).toLocaleString("pt-BR") : "—";
+  return `
+  <div class="item">
+    <div class="meta">
+      <div class="k">${escapeHtml(c?.name||"Cliente")} • ${escapeHtml(s?.name||"Serviço")} ${tagForStatus(t.status)}</div>
+      <div class="muted">Aberto por: ${opened} • ${confirmedText} • Agendamento: ${sched}</div>
+      <div class="muted">${escapeHtml(t.desc||"")}</div>
+    </div>
+    <div class="right no-print">
+      <button class="btn" data-act="ver" data-id="${t.id}">Ver</button>
+      ${session.role!=="CLIENTE" ? `<button class="btn ok" data-act="confirmar" data-id="${t.id}">Confirmar</button>` : ""}
+      ${session.role!=="CLIENTE" ? `<button class="btn a" data-act="status" data-id="${t.id}">Status</button>` : ""}
+      ${session.role!=="CLIENTE" ? `<button class="btn bad" data-act="cancelar" data-id="${t.id}">Cancelar</button>` : ""}
+    </div>
+  </div>`;
+}
+
+$("agenda-date").valueAsDate = new Date();
+$("agenda-date").onchange = renderAgenda;
+
+function renderAgenda(){
+  const role = session.role;
+  const d = $("agenda-date").value;
+  const startOfDay = new Date(d+"T00:00:00");
+  const endOfDay = new Date(d+"T23:59:59");
+  let items = db.tickets.filter(t=> t.scheduledAt && new Date(t.scheduledAt)>=startOfDay && new Date(t.scheduledAt)<=endOfDay);
+  if(role==="CLIENTE"){
+    const c = db.clients.find(x=>x.phone===session.phone);
+    items = c ? items.filter(t=>t.clientId===c.id) : [];
+  }
+  items.sort((a,b)=> (a.scheduledAt||"").localeCompare(b.scheduledAt||""));
+
+  $("agenda-empty").classList.toggle("hide", items.length!==0);
+  $("agenda-list").innerHTML = items.map(t=>{
+    const c = db.clients.find(x=>x.id===t.clientId);
+    const s = db.services.find(x=>x.id===t.serviceId);
+    const emp = db.employees.find(x=>x.id===t.employeeId);
+    const sched = new Date(t.scheduledAt).toLocaleString("pt-BR");
+    return `<div class="item">
+      <div class="meta">
+        <div class="k">${sched} • ${escapeHtml(c?.name||"Cliente")} • ${escapeHtml(s?.name||"Serviço")}</div>
+        <div class="muted">Funcionário: ${escapeHtml(emp?.name||"—")} • ${tagForStatus(t.status)}</div>
+      </div>
+      <div class="right no-print"><button class="btn" data-act="ver" data-id="${t.id}">Ver</button></div>
+    </div>`;
+  }).join("");
+  $("agenda-list").querySelectorAll("[data-act]").forEach(b=> b.onclick = ()=> ticketAction("ver", b.dataset.id));
+}
+
+function renderClients(){
+  let list = [...db.clients].sort((a,b)=> (b.createdAt||"").localeCompare(a.createdAt||""));
+  $("client-empty").classList.toggle("hide", list.length!==0);
+  $("client-list").innerHTML = list.map(c=>`
+    <div class="item">
+      <div class="meta">
+        <div class="k">${escapeHtml(c.name)}</div>
+        <div class="muted">WhatsApp: ${c.phone} • CPF: ${escapeHtml(c.cpf||"—")}</div>
+        <div class="muted">${escapeHtml(c.address||"")} • ${escapeHtml(c.city||"")}-${escapeHtml(c.state||"")} • CEP ${escapeHtml(c.cep||"")}</div>
+      </div>
+      <div class="right no-print"><button class="btn" data-client="${c.id}">Abrir chamado</button></div>
+    </div>
+  `).join("");
+  $("client-list").querySelectorAll("[data-client]").forEach(b=> b.onclick = ()=> openTicketModal({clientId:b.dataset.client}));
+}
+
+function renderEmps(){
+  let list = [...db.employees].sort((a,b)=> (b.createdAt||"").localeCompare(a.createdAt||""));
+  $("func-empty").classList.toggle("hide", list.length!==0);
+  $("func-list").innerHTML = list.map(e=>`
+    <div class="item">
+      <div class="meta">
+        <div class="k">${escapeHtml(e.name)}</div>
+        <div class="muted">WhatsApp: ${e.phone} • Veículo: ${escapeHtml(e.vehicle||"—")}</div>
+        <div class="muted">CPF: ${escapeHtml(e.cpf||"—")} • RG: ${escapeHtml(e.rg||"—")} • Nasc: ${escapeHtml(e.dob||"—")}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderServices(){
+  let list = [...db.services];
+  $("serv-empty").classList.toggle("hide", list.length!==0);
+  $("serv-list").innerHTML = list.map(s=>`
+    <div class="item">
+      <div class="meta">
+        <div class="k">${escapeHtml(s.name)}</div>
+        <div class="muted">Duração: ${s.durationMin} min • Preço base: R$ ${Number(s.priceBase||0).toFixed(2)}</div>
+        <div class="muted">${escapeHtml(s.desc||"")}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderConfig(){
+  $("cfg-start").value = db.config.bizHoursStart || "08:00";
+  $("cfg-end").value = db.config.bizHoursEnd || "18:00";
+  $("cfg-company").value = db.config.companyText || "";
+  $("cfg-lgpd").value = db.config.lgpdText || "";
+  $("cfg-msg").textContent = "";
+}
+$("btn-save-config").onclick = ()=>{
+  db.config.bizHoursStart = $("cfg-start").value || "08:00";
+  db.config.bizHoursEnd = $("cfg-end").value || "18:00";
+  db.config.companyText = $("cfg-company").value || "";
+  db.config.lgpdText = $("cfg-lgpd").value || "";
+  saveDB(db);
+  $("cfg-msg").textContent = "✅ Configurações salvas.";
+};
+
+$("btn-new-ticket").onclick = ()=> openTicketModal();
+$("btn-new-client").onclick = ()=> openClientModal();
+$("btn-new-func").onclick = ()=> openEmpModal();
+$("btn-new-serv").onclick = ()=> openServiceModal();
+
+function ticketAction(act, id){
+  if(act==="ver") return openTicketView(id);
+  if(act==="confirmar"){
+    const t = db.tickets.find(x=>x.id===id); if(!t) return;
+    t.confirmed = true; saveDB(db); toast("✅ Confirmado."); renderTickets(); renderDash();
+    return;
+  }
+  if(act==="status") return openStatusModal(id);
+  if(act==="cancelar"){
+    const t = db.tickets.find(x=>x.id===id); if(!t) return;
+    t.status = "CANCELADO"; saveDB(db); toast("✅ Cancelado."); renderTickets(); renderDash(); renderAgenda();
+  }
+}
+
+$("modal-close").onclick = ()=> hide("modal");
+function openModal(title, bodyHtml){ $("modal-title").textContent = title; $("modal-body").innerHTML = bodyHtml; show("modal"); }
+
+function openTicketModal(pref={}){
+  const role = session.role;
+  let clientOptions = db.clients.map(c=> `<option value="${c.id}">${escapeHtml(c.name)} • ${c.phone}</option>`).join("");
+  let clientId = pref.clientId || "";
+  if(role==="CLIENTE"){
+    const c = db.clients.find(x=>x.phone===session.phone);
+    if(c){ clientOptions = `<option value="${c.id}">${escapeHtml(c.name)} • ${c.phone}</option>`; clientId = c.id; }
+    else{
+      const id = uid();
+      db.clients.push({id, name:"Cliente", phone:session.phone, cpf:"", cep:"", address:"", city:"", state:"", createdAt:nowISO()});
+      saveDB(db);
+      clientOptions = `<option value="${id}">Cliente • ${session.phone}</option>`;
+      clientId = id;
+    }
+  }
+  const servOptions = db.services.map(s=> `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+  const openedByRole = role==="CLIENTE" ? "CLIENTE" : "EMPRESA";
+
+  openModal("Abrir chamado", `
+    <div class="grid">
+      <label>Cliente<select id="m-client">${clientOptions}</select></label>
+      <label>Serviço<select id="m-serv">${servOptions}</select></label>
+      <label class="full">Descrição<textarea id="m-desc" placeholder="Descreva o problema..."></textarea></label>
+      <label class="full">Foto do equipamento (opcional)<input type="file" id="m-photo" accept="image/*" /></label>
+      <button class="btn a full" id="m-save">Salvar chamado</button>
+      <div class="toast" id="m-msg"></div>
+    </div>
+  `);
+
+  $("m-client").value = clientId || ($("m-client").options[0]?.value || "");
+  $("m-serv").value = db.services[0]?.id || "";
+
+  $("m-save").onclick = async ()=>{
+    const clientId2 = $("m-client").value;
+    const serviceId = $("m-serv").value;
+    const desc = $("m-desc").value || "";
+    const file = $("m-photo").files?.[0] || null;
+    if(!clientId2 || !serviceId){ $("m-msg").textContent="⚠️ Selecione cliente e serviço."; return; }
+    let photoDataUrl = "";
+    if(file) photoDataUrl = await fileToDataURL(file);
+
+    db.tickets.push({
+      id: uid(),
+      openedByRole,
+      openedById: session.userId,
+      clientId: clientId2,
+      serviceId,
+      desc,
+      photoDataUrl,
+      status:"ABERTO",
+      createdAt: nowISO(),
+      confirmed: openedByRole==="EMPRESA",
+      employeeId:"",
+      scheduledAt:""
+    });
+    saveDB(db);
+    hide("modal");
+    toast("✅ Chamado criado.");
+    switchTab("chamados");
+  };
+}
+
+function openTicketView(id){
+  const t = db.tickets.find(x=>x.id===id); if(!t) return;
+  const c = db.clients.find(x=>x.id===t.clientId);
+  const s = db.services.find(x=>x.id===t.serviceId);
+  const emp = db.employees.find(x=>x.id===t.employeeId);
+  const opened = t.openedByRole==="CLIENTE" ? "Cliente" : "Empresa";
+  const sched = t.scheduledAt ? new Date(t.scheduledAt).toLocaleString("pt-BR") : "—";
+  const canManage = session.role!=="CLIENTE";
+
+  openModal("Detalhe do chamado", `
+    <div class="list">
+      <div class="item"><div class="meta">
+        <div class="k">${escapeHtml(c?.name||"Cliente")} • ${escapeHtml(s?.name||"Serviço")} ${tagForStatus(t.status)}</div>
+        <div class="muted">Aberto por: ${opened} • Confirmado: ${t.confirmed?"Sim":"Não"} • Agendado: ${sched}</div>
+        <div class="muted">Funcionário: ${escapeHtml(emp?.name||"—")}</div>
+      </div></div>
+      <div class="item"><div class="meta"><div class="k">Descrição</div><div class="muted">${escapeHtml(t.desc||"")}</div></div></div>
+      <div class="item"><div class="meta"><div class="k">Foto do equipamento</div>
+        ${t.photoDataUrl ? `<img src="${t.photoDataUrl}" alt="foto" style="max-width:100%; border-radius:12px; border:1px solid rgba(34,49,74,.7)" />` : `<div class="muted">—</div>`}
+      </div></div>
+
+      ${canManage ? `
+      <div class="item no-print">
+        <div class="meta"><div class="k">Ações</div><div class="muted">Confirmar, mudar status e agendar.</div></div>
+        <div class="right">
+          <button class="btn ok" id="v-confirm">Confirmar</button>
+          <button class="btn a" id="v-schedule">Agendar</button>
+          <button class="btn" id="v-status">Status</button>
+        </div>
+      </div>` : ``}
+
+      <div class="item no-print">
+        <div class="meta"><div class="k">PDF</div><div class="muted">Use “Imprimir” para salvar em PDF.</div></div>
+        <div class="right"><button class="btn ok" id="v-pdf">📄 PDF</button></div>
+      </div>
+
+      <div class="toast" id="v-msg"></div>
+    </div>
+  `);
+
+  if(canManage){
+    $("v-confirm").onclick = ()=>{ t.confirmed=true; saveDB(db); $("v-msg").textContent="✅ Confirmado."; renderTickets(); renderDash(); };
+    $("v-status").onclick = ()=> openStatusModal(id);
+    $("v-schedule").onclick = ()=> openScheduleModal(id);
+  }
+  $("v-pdf").onclick = ()=> window.print();
+}
+
+function openStatusModal(id){
+  const t = db.tickets.find(x=>x.id===id); if(!t) return;
+  openModal("Mudar status", `
+    <div class="grid">
+      <label class="full">Status
+        <select id="st">
+          <option value="ABERTO">Aberto</option>
+          <option value="EM_ANDAMENTO">Em andamento</option>
+          <option value="ORCAMENTO">Orçamento</option>
+          <option value="CONCLUIDO">Concluído</option>
+          <option value="CANCELADO">Cancelado</option>
+        </select>
+      </label>
+      <button class="btn ok full" id="st-save">Salvar</button>
+      <div class="toast" id="st-msg"></div>
+    </div>
+  `);
+  $("st").value = t.status;
+  $("st-save").onclick = ()=>{ t.status=$("st").value; saveDB(db); $("st-msg").textContent="✅ Atualizado."; renderTickets(); renderDash(); renderAgenda(); };
+}
+
+function openScheduleModal(id){
+  const t = db.tickets.find(x=>x.id===id); if(!t) return;
+  const empOptions = [`<option value="">—</option>`].concat(db.employees.map(e=>`<option value="${e.id}">${escapeHtml(e.name)} • ${e.phone}</option>`)).join("");
+  const start = db.config.bizHoursStart || "08:00";
+  const end = db.config.bizHoursEnd || "18:00";
+  openModal("Agendar (2h)", `
+    <div class="grid">
+      <label>Funcionário<select id="sc-emp">${empOptions}</select></label>
+      <label>Data<input type="date" id="sc-date" /></label>
+      <label class="full">Hora (início) — dentro do horário comercial (${start}–${end})<input type="time" id="sc-time" /></label>
+      <button class="btn ok full" id="sc-save">Salvar agendamento</button>
+      <div class="toast" id="sc-msg"></div>
+    </div>
+  `);
+  $("sc-emp").value = t.employeeId || "";
+  const d = t.scheduledAt ? new Date(t.scheduledAt) : new Date();
+  $("sc-date").valueAsDate = d;
+  $("sc-time").value = t.scheduledAt ? new Date(t.scheduledAt).toISOString().slice(11,16) : start;
+
+  $("sc-save").onclick = ()=>{
+    const empId = $("sc-emp").value;
+    const date = $("sc-date").value;
+    const time = $("sc-time").value;
+    if(!date || !time){ $("sc-msg").textContent="⚠️ Preencha data e hora."; return; }
+    if(!(time>=start && time<=end)){ $("sc-msg").textContent="⚠️ Fora do horário comercial."; return; }
+    const iso = new Date(date+"T"+time+":00");
+    t.employeeId = empId;
+    t.scheduledAt = iso.toISOString();
+    t.confirmed = true;
+    saveDB(db);
+    $("sc-msg").textContent="✅ Agendado.";
+    renderAgenda(); renderTickets(); renderDash();
+  };
+}
+
+function openClientModal(){
+  openModal("Novo cliente", `
+    <div class="grid">
+      <label>Nome completo<input id="c-name"/></label>
+      <label>WhatsApp<input id="c-phone" inputmode="numeric"/></label>
+      <label>CPF<input id="c-cpf"/></label>
+      <label>CEP<input id="c-cep" inputmode="numeric"/></label>
+      <label class="full">Endereço<input id="c-addr"/></label>
+      <label>Cidade<input id="c-city"/></label>
+      <label>Estado<input id="c-state" placeholder="SP"/></label>
+      <button class="btn ok full" id="c-save">Salvar</button>
+      <div class="toast" id="c-msg"></div>
+    </div>
+  `);
+  $("c-save").onclick = ()=>{
+    const c = { id:uid(), name:$("c-name").value.trim(), phone:$("c-phone").value.trim(), cpf:$("c-cpf").value.trim(), cep:$("c-cep").value.trim(),
+      address:$("c-addr").value.trim(), city:$("c-city").value.trim(), state:$("c-state").value.trim(), createdAt:nowISO() };
+    if(!c.name || !c.phone){ $("c-msg").textContent="⚠️ Nome e WhatsApp são obrigatórios."; return; }
+    db.clients.push(c); saveDB(db);
+    hide("modal"); toast("✅ Cliente cadastrado.");
+    renderClients();
+  };
+}
+
+function openEmpModal(){
+  openModal("Novo funcionário", `
+    <div class="grid">
+      <label>Nome completo<input id="e-name"/></label>
+      <label>WhatsApp<input id="e-phone" inputmode="numeric"/></label>
+      <label class="full">Endereço<input id="e-addr"/></label>
+      <label>CPF<input id="e-cpf"/></label>
+      <label>RG<input id="e-rg"/></label>
+      <label>Data nascimento<input id="e-dob" placeholder="DD/MM/AAAA"/></label>
+      <label>Veículo<input id="e-veh"/></label>
+      <label class="full">Foto (opcional)<input type="file" id="e-photo" accept="image/*"/></label>
+      <label class="full">Observações<textarea id="e-notes"></textarea></label>
+      <button class="btn ok full" id="e-save">Salvar</button>
+      <div class="toast" id="e-msg"></div>
+    </div>
+  `);
+  $("e-save").onclick = async ()=>{
+    const file = $("e-photo").files?.[0] || null;
+    const photoDataUrl = file ? await fileToDataURL(file) : "";
+    const e = { id:uid(), name:$("e-name").value.trim(), phone:$("e-phone").value.trim(), address:$("e-addr").value.trim(), cpf:$("e-cpf").value.trim(),
+      rg:$("e-rg").value.trim(), dob:$("e-dob").value.trim(), vehicle:$("e-veh").value.trim(), photoDataUrl, notes:$("e-notes").value.trim(), createdAt:nowISO() };
+    if(!e.name || !e.phone){ $("e-msg").textContent="⚠️ Nome e WhatsApp são obrigatórios."; return; }
+    db.employees.push(e); saveDB(db);
+    hide("modal"); toast("✅ Funcionário cadastrado.");
+    renderEmps();
+  };
+}
+
+function openServiceModal(){
+  openModal("Novo serviço", `
+    <div class="grid">
+      <label class="full">Nome<input id="s-name" /></label>
+      <label>Duração (min)<input id="s-dur" inputmode="numeric" value="120" /></label>
+      <label>Preço base (R$)<input id="s-price" inputmode="decimal" value="0" /></label>
+      <label class="full">Descrição<textarea id="s-desc"></textarea></label>
+      <button class="btn ok full" id="s-save">Salvar</button>
+      <div class="toast" id="s-msg"></div>
+    </div>
+  `);
+  $("s-save").onclick = ()=>{
+    const name = $("s-name").value.trim();
+    const dur = Number($("s-dur").value || 120);
+    const price = Number(String($("s-price").value||"0").replace(",", "."));
+    const desc = $("s-desc").value || "";
+    if(!name){ $("s-msg").textContent="⚠️ Nome é obrigatório."; return; }
+    db.services.push({id:uid(), name, durationMin:dur, priceBase:price, desc});
+    saveDB(db);
+    hide("modal"); toast("✅ Serviço cadastrado.");
+    renderServices();
+  };
+}
+
+function fileToDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(String(r.result||""));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+$("btn-export-json").onclick = ()=>{
+  const blob = new Blob([JSON.stringify(db,null,2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "backup-app.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast("✅ Backup baixado.");
+};
+$("btn-import-json").onchange = async (e)=>{
+  const file = e.target.files?.[0]; if(!file) return;
+  const text = await file.text();
+  try{
+    const data = JSON.parse(text);
+    localStorage.setItem(DB_KEY, JSON.stringify(data));
+    db = loadDB();
+    toast("✅ Backup restaurado.");
+    switchTab("dash");
+  }catch(err){ toast("⚠️ JSON inválido."); }
+  e.target.value = "";
+};
+$("btn-reset").onclick = ()=>{
+  if(!confirm("Resetar tudo?")) return;
+  localStorage.removeItem(DB_KEY);
+  db = loadDB();
+  toast("✅ Resetado.");
+  switchTab("dash");
+};
+
+boot();
+</script>
+</body>
+</html>
